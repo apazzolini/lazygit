@@ -898,7 +898,7 @@ func calcRealScrollbarStartEnd(v *View) (bool, int, int) {
 	realScrollbarStart := top + scrollbarStart
 	realScrollbarEnd := realScrollbarStart + scrollbarHeight
 
-	return true, realScrollbarStart, realScrollbarEnd
+	return false, realScrollbarStart, realScrollbarEnd
 }
 
 func cornerRune(index byte) rune {
