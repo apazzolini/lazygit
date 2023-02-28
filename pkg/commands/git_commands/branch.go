@@ -115,6 +115,7 @@ type CheckoutOptions struct {
 func (self *BranchCommands) Checkout(branch string, options CheckoutOptions) error {
 	cmdArgs := NewGitCmd("checkout").
 		ArgIf(options.Force, "--force").
+		Arg("--ignore-other-worktrees").
 		Arg(branch).
 		ToArgv()
 

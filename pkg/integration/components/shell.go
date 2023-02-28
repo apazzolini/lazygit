@@ -143,7 +143,7 @@ func (self *Shell) NewBranchFrom(name string, from string) *Shell {
 }
 
 func (self *Shell) Checkout(name string) *Shell {
-	return self.RunCommand([]string{"git", "checkout", name})
+	return self.RunCommand([]string{"git", "checkout", "--ignore-other-worktrees", name})
 }
 
 func (self *Shell) Merge(name string) *Shell {
