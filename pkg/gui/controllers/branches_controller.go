@@ -337,11 +337,6 @@ func (self *BranchesController) press(selectedBranch *models.Branch) error {
 		return self.c.ErrorMsg(self.c.Tr.AlreadyCheckedOutBranch)
 	}
 
-	worktreeForRef, ok := self.worktreeForBranch(selectedBranch)
-	if ok && !worktreeForRef.IsCurrent {
-		return self.promptToCheckoutWorktree(worktreeForRef)
-	}
-
 	self.c.LogAction(self.c.Tr.Actions.CheckoutBranch)
 	return self.c.Helpers().Refs.CheckoutRef(selectedBranch.Name, types.CheckoutRefOptions{})
 }

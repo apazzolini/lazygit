@@ -5,7 +5,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jesseduffield/lazygit/pkg/commands/git_commands"
 	"github.com/jesseduffield/lazygit/pkg/commands/models"
 	"github.com/jesseduffield/lazygit/pkg/config"
 	"github.com/jesseduffield/lazygit/pkg/gui/presentation/icons"
@@ -48,10 +47,8 @@ func getBranchDisplayStrings(
 	worktrees []*models.Worktree,
 	now time.Time,
 ) []string {
-	checkedOutByWorkTree := git_commands.CheckedOutByOtherWorktree(b, worktrees)
 	showCommitHash := fullDescription || userConfig.Gui.ShowBranchCommitHash
 	branchStatus := BranchStatus(b, itemOperation, tr, now, userConfig)
-	worktreeIcon := lo.Ternary(icons.IsIconEnabled(), icons.LINKED_WORKTREE_ICON, fmt.Sprintf("(%s)", tr.LcWorktree))
 
 	// Recency is always three characters, plus one for the space
 	availableWidth := viewWidth - 4
@@ -63,9 +60,6 @@ func getBranchDisplayStrings(
 	}
 	if showCommitHash {
 		availableWidth -= utils.COMMIT_HASH_SHORT_SIZE + 1
-	}
-	if checkedOutByWorkTree {
-		availableWidth -= runewidth.StringWidth(worktreeIcon) + 1
 	}
 
 	displayName := b.Name
@@ -85,9 +79,6 @@ func getBranchDisplayStrings(
 		displayName = displayName[:len-1] + "…"
 	}
 	coloredName := nameTextStyle.Sprint(displayName)
-	if checkedOutByWorkTree {
-		coloredName = fmt.Sprintf("%s %s", coloredName, style.FgDefault.Sprint(worktreeIcon))
-	}
 	if len(branchStatus) > 0 {
 		coloredStatus := branchStatusColor(b, itemOperation).Sprint(branchStatus)
 		coloredName = fmt.Sprintf("%s %s", coloredName, coloredStatus)
