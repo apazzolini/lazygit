@@ -83,6 +83,9 @@ The permitted contexts are:
 | reflogCommits  | The 'Reflog' tab                                                                                         |
 | subCommits     | The context you see when pressing enter on a branch                                                      |
 | commitFiles    | The context you see when pressing enter on a commit or stash entry (warning, might be renamed in future) |
+| staging        | The unstaged changes view you see when pressing enter on a file                                          |
+| stagingSecondary | The staged changes view you see when pressing enter on a file                                         |
+| patchBuilding  | The context you see when selecting lines to add to a custom patch                                       |
 | stash          | The 'Stash' tab                                                                                          |
 | global         | This keybinding will take affect everywhere                                                              |
 
@@ -363,6 +366,7 @@ Your commands can contain placeholder strings using Go's [template syntax](https
 SelectedCommit
 SelectedCommitRange
 SelectedFile
+SelectedLine
 SelectedPath
 SelectedSubmodule
 SelectedLocalBranch
@@ -379,6 +383,8 @@ CheckedOutBranch
 
 
 To see what fields are available on e.g. the `SelectedFile`, see [here](https://github.com/jesseduffield/lazygit/blob/master/pkg/gui/services/custom_commands/models.go) (all the modelling lives in the same file).
+
+`SelectedLine` is available in the `staging`, `stagingSecondary`, and `patchBuilding` contexts. Its `.Number` property is the line number in the new version of the file at the cursor. For a range selection, it represents the moving end of the range.
 
 We don't support accessing all elements of a range selection yet. We might add this in the future, but as a special case you can access the range of selected commits by using `SelectedCommitRange`, which has two properties `.To` and `.From` which are the hashes of the bottom and top selected commits, respectively. This is useful for passing them to a git command that operates on a range of commits. For example, to create patches for all selected commits, you might use
 ```yml

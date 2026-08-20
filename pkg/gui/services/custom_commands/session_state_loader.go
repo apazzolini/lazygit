@@ -2,6 +2,7 @@ package custom_commands
 
 import (
 	"github.com/jesseduffield/lazygit/pkg/commands/models"
+	"github.com/jesseduffield/lazygit/pkg/gui/context"
 	"github.com/jesseduffield/lazygit/pkg/gui/controllers/helpers"
 	"github.com/samber/lo"
 )
@@ -199,6 +200,7 @@ type SessionState struct {
 	SelectedCommit         *Commit
 	SelectedCommitRange    *CommitRange
 	SelectedFile           *File
+	SelectedLine           *Line
 	SelectedSubmodule      *Submodule
 	SelectedPath           string
 	SelectedLocalBranch    *Branch
@@ -237,8 +239,23 @@ func (self *SessionStateLoader) call() *SessionState {
 		selectedPath = selectedCommitFilePath
 	}
 
+	var selectedLine *Line
+	for _, patchContext := range []*context.PatchExplorerContext{
+		self.c.Contexts().Staging,
+		self.c.Contexts().StagingSecondary,
+		self.c.Contexts().CustomPatchBuilder,
+	} {
+		if self.c.Context().IsCurrent(patchContext) {
+			if state := patchContext.GetState(); state != nil {
+				selectedLine = &Line{Number: state.CurrentLineNumber()}
+			}
+			break
+		}
+	}
+
 	return &SessionState{
 		SelectedFile:           fileShimFromModelFile(self.c.Contexts().Files.GetSelectedFile()),
+		SelectedLine:           selectedLine,
 		SelectedSubmodule:      submoduleShimFromModelSubmodule(self.c.Contexts().Submodules.GetSelected()),
 		SelectedPath:           selectedPath,
 		SelectedLocalCommit:    selectedLocalCommit,

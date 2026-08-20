@@ -28,6 +28,10 @@ type Commit struct {
 	Parents       []string
 }
 
+type Line struct {
+	Number int
+}
+
 type File struct {
 	Name                    string
 	PreviousName            string
