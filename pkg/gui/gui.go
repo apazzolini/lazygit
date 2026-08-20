@@ -1126,7 +1126,9 @@ func (gui *Gui) runSubprocess(cmdObj *oscommands.CmdObj) error {
 	subprocess := cmdObj.GetCmd()
 	subprocess.Stdout = os.Stdout
 	subprocess.Stderr = os.Stderr
-	subprocess.Stdin = os.Stdin
+	if subprocess.Stdin == nil {
+		subprocess.Stdin = os.Stdin
+	}
 
 	fmt.Fprintf(os.Stdout, "\n%s\n\n", style.FgBlue.Sprint("+ "+strings.Join(subprocess.Args, " ")))
 

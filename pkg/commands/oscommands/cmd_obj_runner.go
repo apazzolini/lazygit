@@ -505,7 +505,9 @@ func (self *cmdObjRunner) getCmdHandlerNonPty(cmd *exec.Cmd) (*cmdHandler, error
 	cmd.Stdout = stdoutWriter
 
 	buf := &Buffer{}
-	cmd.Stdin = buf
+	if cmd.Stdin == nil {
+		cmd.Stdin = buf
+	}
 
 	if err := cmd.Start(); err != nil {
 		return nil, err

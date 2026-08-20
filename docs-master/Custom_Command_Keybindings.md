@@ -52,6 +52,7 @@ For a given custom command, here are the allowed fields:
 |-----------------|----------------------|-|
 | key | The key to trigger the command. Use a single key or list of keys, as described in [Custom_Keybindings.md](https://github.com/jesseduffield/lazygit/blob/master/docs/keybindings/Custom_Keybindings.md). Custom commands without a key specified can be triggered by selecting them from the keybindings (`?`) menu | no |
 | command | The command to run (using Go template syntax for placeholder values) | yes |
+| stdin | Optional text to send directly to the command's standard input, using the same template values and prompt responses as `command`. Use this for large payloads instead of interpolating them into shell arguments. Not supported with `output: logWithPty`. | no |
 | context | The context in which to listen for the key (see [below](#contexts)) | yes |
 | prompts | A list of prompts that will request user input before running the final command | no |
 | loadingText | Text to display while waiting for command to finish | no |
@@ -83,6 +84,8 @@ The permitted contexts are:
 | reflogCommits  | The 'Reflog' tab                                                                                         |
 | subCommits     | The context you see when pressing enter on a branch                                                      |
 | commitFiles    | The context you see when pressing enter on a commit or stash entry (warning, might be renamed in future) |
+| normal         | The main diff view                                                                                      |
+| normalSecondary | The secondary diff view                                                                                |
 | stash          | The 'Stash' tab                                                                                          |
 | global         | This keybinding will take affect everywhere                                                              |
 
@@ -363,6 +366,9 @@ Your commands can contain placeholder strings using Go's [template syntax](https
 SelectedCommit
 SelectedCommitRange
 SelectedFile
+SelectedLine
+SelectedDiff
+SelectedDiffError
 SelectedPath
 SelectedSubmodule
 SelectedLocalBranch
@@ -380,7 +386,13 @@ CheckedOutBranch
 
 To see what fields are available on e.g. the `SelectedFile`, see [here](https://github.com/jesseduffield/lazygit/blob/master/pkg/gui/services/custom_commands/models.go) (all the modelling lives in the same file).
 
-We don't support accessing all elements of a range selection yet. We might add this in the future, but as a special case you can access the range of selected commits by using `SelectedCommitRange`, which has two properties `.To` and `.From` which are the hashes of the bottom and top selected commits, respectively. This is useful for passing them to a git command that operates on a range of commits. For example, to create patches for all selected commits, you might use
+`SelectedLine` is available when a diff line is selected in the focused `normal` or `normalSecondary` context. Its `.Number` property is the line number in the new version of the file at the cursor. Its `.Range.From` and `.Range.To` properties are the new-file line numbers at the top and bottom of the selection. For a single-line selection, `.Range.From` and `.Range.To` are equal. Since deleted lines do not have distinct line numbers in the new file, a range containing only deleted lines may collapse to a single line number. File headers use line number 1. In side-by-side diffs, the cursor and range endpoints use each row's leftmost line identity. `SelectedLine` is unset for selections spanning multiple files or when the cursor or range endpoints cannot be resolved. `SelectedPath` is the repo-relative path of the file at the focused diff cursor.
+
+`SelectedDiff` identifies a single-file selection as `file:line` or `file:from-to` for unstaged changes, `index:file:line` for staged changes, or `short-commit-hash:file:line` for an individual commit. Ordinary added or context lines need no additional text. Deleted lines use `old` line coordinates and a `(deleted)` marker; deletions, mixed replacements, and ambiguous header selections also include the selected displayed text in a code block. Side-by-side selections account for both line identities. The location and any included text are captured when the command is invoked, before prompts, without rerunning Git or including terminal escape sequences.
+
+`SelectedDiff` is empty for cross-file selections, stashes, custom-patch previews, commit ranges, explicit revision comparisons, and selections that cannot be resolved. `SelectedDiffError` describes why no location is available. A command can test `SelectedDiff` before prompting and display `SelectedDiffError` instead of sending an invalid location.
+
+We don't support accessing all elements of a range selection yet. We might add this in the future, but as special cases you can access the selected line range with `SelectedLine.Range` and the range of selected commits with `SelectedCommitRange`. `SelectedCommitRange` has two properties `.To` and `.From` which are the hashes of the bottom and top selected commits, respectively. This is useful for passing them to a git command that operates on a range of commits. For example, to create patches for all selected commits, you might use
 ```yml
   command: "git format-patch {{.SelectedCommitRange.From}}^..{{.SelectedCommitRange.To}}"
 ```

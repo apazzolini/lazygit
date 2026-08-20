@@ -263,6 +263,7 @@ func validateCustomCommands(customCommands []CustomCommand) error {
 		if len(customCommand.CommandMenu) > 0 {
 			if len(customCommand.Context) > 0 ||
 				len(customCommand.Command) > 0 ||
+				len(customCommand.Stdin) > 0 ||
 				len(customCommand.Prompts) > 0 ||
 				len(customCommand.LoadingText) > 0 ||
 				len(customCommand.Output) > 0 ||
@@ -292,6 +293,10 @@ func validateCustomCommands(customCommands []CustomCommand) error {
 				if err := validateCustomCommandPrompt(prompt); err != nil {
 					return err
 				}
+			}
+
+			if customCommand.Stdin != "" && customCommand.Output == "logWithPty" {
+				return errors.New("customCommand.stdin is not supported with output: logWithPty")
 			}
 
 			if err := validateEnum("customCommand.output", customCommand.Output,

@@ -764,6 +764,12 @@ type TranslationSet struct {
 	ViewCommits                           string
 	MinGitVersionError                    string
 	RunningCustomCommandStatus            string
+	DiffNoteSelectLines                   string
+	DiffNoteOneFile                       string
+	DiffNoteCustomPatch                   string
+	DiffNoteComparison                    string
+	DiffNoteSource                        string
+	DiffNoteUnresolved                    string
 	SubmoduleStashAndReset                string
 	AndResetSubmodules                    string
 	EnterSubmoduleTooltip                 string
@@ -1955,6 +1961,12 @@ func EnglishTranslationSet() *TranslationSet {
 		ViewCommits:                              "View commits",
 		MinGitVersionError:                       "Git version must be at least %s. Please upgrade your git version.",
 		RunningCustomCommandStatus:               "Running custom command",
+		DiffNoteSelectLines:                      "Select lines in a working-tree or individual commit diff first.",
+		DiffNoteOneFile:                          "Select lines from only one file before sending a note.",
+		DiffNoteCustomPatch:                      "Notes from custom-patch previews are not supported.",
+		DiffNoteComparison:                       "Exit revision comparison mode before sending a note.",
+		DiffNoteSource:                           "Notes support only working-tree changes and individual commits, not stashes or commit ranges.",
+		DiffNoteUnresolved:                       "The selected lines could not be recovered from the source diff. Select them again.",
 		SubmoduleStashAndReset:                   "Stash uncommitted submodule changes and update",
 		AndResetSubmodules:                       "And reset submodules",
 		Enter:                                    "Enter",

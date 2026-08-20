@@ -1,8 +1,14 @@
 package custom_commands
 
 import (
+	"fmt"
+	"path/filepath"
+	"strings"
+
 	"github.com/jesseduffield/lazygit/pkg/commands/models"
+	"github.com/jesseduffield/lazygit/pkg/gui/context"
 	"github.com/jesseduffield/lazygit/pkg/gui/controllers/helpers"
+	"github.com/jesseduffield/lazygit/pkg/gui/types"
 	"github.com/samber/lo"
 )
 
@@ -199,6 +205,9 @@ type SessionState struct {
 	SelectedCommit         *Commit
 	SelectedCommitRange    *CommitRange
 	SelectedFile           *File
+	SelectedLine           *Line
+	SelectedDiff           string
+	SelectedDiffError      string
 	SelectedSubmodule      *Submodule
 	SelectedPath           string
 	SelectedLocalBranch    *Branch
@@ -237,8 +246,170 @@ func (self *SessionStateLoader) call() *SessionState {
 		selectedPath = selectedCommitFilePath
 	}
 
+	var selectedLine *Line
+	selectedDiff := ""
+	selectedDiffError := self.c.Tr.DiffNoteSelectLines
+	for _, diffContext := range []*context.MainContext{
+		self.c.Contexts().Normal,
+		self.c.Contexts().NormalSecondary,
+	} {
+		if !self.c.Context().IsCurrent(diffContext) {
+			continue
+		}
+
+		if self.c.Modes().Diffing.Active() {
+			selectedDiffError = self.c.Tr.DiffNoteComparison
+		}
+		view := diffContext.GetView()
+		diffLineHelper := helpers.NewDiffLineHelper(self.c)
+		cursor, cursorOk := diffLineHelper.GetDiffLineInfo(view, view.SelectedLineIdx())
+		if !cursorOk {
+			break
+		}
+		if path, err := filepath.Rel(self.c.Git().RepoPaths.WorktreePath(), cursor.Path); err == nil {
+			selectedPath = filepath.ToSlash(path)
+		}
+		if !view.Highlight {
+			break
+		}
+
+		from, to := view.SelectedLineRange()
+		first, firstOk := diffLineHelper.GetDiffLineInfo(view, from)
+		last, lastOk := diffLineHelper.GetDiffLineInfo(view, to)
+		bufferFrom, bufferTo, rangeOk := view.SelectedBufferLineRange()
+		if !firstOk || !lastOk || !rangeOk {
+			break
+		}
+		selectedInfos := diffLineHelper.DiffLinesInBufferRange(view, bufferFrom, bufferTo)
+		singleFile := true
+		for _, info := range selectedInfos {
+			if info.Path != cursor.Path {
+				singleFile = false
+				break
+			}
+		}
+		if !singleFile {
+			selectedDiffError = self.c.Tr.DiffNoteOneFile
+			break
+		}
+
+		for _, info := range []*types.DiffLineInfo{&cursor, &first, &last} {
+			if info.Type == types.DiffLineFileHeader {
+				info.NewLine = 1
+			}
+		}
+		selectedLine = &Line{
+			Number: cursor.NewLine,
+			Range: &LineRange{
+				From: first.NewLine,
+				To:   last.NewLine,
+			},
+		}
+		if diffLineHelper.ShowsCustomPatch(view) {
+			selectedDiffError = self.c.Tr.DiffNoteCustomPatch
+			break
+		}
+		if self.c.Modes().Diffing.Active() {
+			selectedDiffError = self.c.Tr.DiffNoteComparison
+			break
+		}
+		if !self.c.Context().IsInStack(diffContext) {
+			break
+		}
+		source := self.c.Context().NextInStack(diffContext)
+		var commit *models.Commit
+		diffKind := ""
+		switch source := source.(type) {
+		case *context.WorkingTreeContext:
+			diffKind = "unstaged"
+			if diffContext == self.c.Contexts().NormalSecondary {
+				diffKind = "index"
+			}
+		case *context.LocalCommitsContext:
+			commits, _, _ := source.GetSelectedItems()
+			if len(commits) == 1 {
+				commit = source.GetSelected()
+			}
+		case *context.SubCommitsContext:
+			commits, _, _ := source.GetSelectedItems()
+			if len(commits) == 1 {
+				commit = source.GetSelected()
+			}
+		case *context.ReflogCommitsContext:
+			commits, _, _ := source.GetSelectedItems()
+			if len(commits) == 1 {
+				commit = source.GetSelected()
+			}
+		case *context.CommitFilesContext:
+			if source.GetRefRange() == nil {
+				commit, _ = source.GetRef().(*models.Commit)
+			}
+		}
+		if commit != nil {
+			diffKind = commit.ShortHash()
+		}
+		if diffKind == "" {
+			selectedDiffError = self.c.Tr.DiffNoteSource
+			break
+		}
+		displayedLines := view.BufferLines()
+		if bufferFrom < 0 || bufferTo >= len(displayedLines) || len(selectedInfos) == 0 {
+			selectedDiffError = self.c.Tr.DiffNoteUnresolved
+			break
+		}
+		newFrom, newTo := -1, -1
+		oldFrom, oldTo := -1, -1
+		includeSnippet := false
+		for _, info := range selectedInfos {
+			switch info.Type {
+			case types.DiffLineDeleted:
+				includeSnippet = true
+				if oldFrom == -1 || info.OldLine < oldFrom {
+					oldFrom = info.OldLine
+				}
+				oldTo = max(oldTo, info.OldLine)
+			case types.DiffLineAdded, types.DiffLineContext:
+				if newFrom == -1 || info.NewLine < newFrom {
+					newFrom = info.NewLine
+				}
+				newTo = max(newTo, info.NewLine)
+			default:
+				includeSnippet = true
+			}
+		}
+		var location strings.Builder
+		if diffKind != "unstaged" {
+			fmt.Fprintf(&location, "%s:", diffKind)
+		}
+		fmt.Fprintf(&location, "%s:", selectedPath)
+		deletedOnly := newFrom == -1 && oldFrom != -1
+		if deletedOnly {
+			location.WriteString("old ")
+			newFrom, newTo = oldFrom, oldTo
+		} else if newFrom == -1 {
+			newFrom, newTo = selectedLine.Range.From, selectedLine.Range.To
+		}
+		fmt.Fprintf(&location, "%d", newFrom)
+		if newFrom != newTo {
+			fmt.Fprintf(&location, "-%d", newTo)
+		}
+		if deletedOnly {
+			location.WriteString(" (deleted)")
+		}
+		if includeSnippet {
+			fmt.Fprintf(&location, "\n```text\n%s\n```",
+				strings.Join(displayedLines[bufferFrom:bufferTo+1], "\n"))
+		}
+		selectedDiff = location.String()
+		selectedDiffError = ""
+		break
+	}
+
 	return &SessionState{
 		SelectedFile:           fileShimFromModelFile(self.c.Contexts().Files.GetSelectedFile()),
+		SelectedLine:           selectedLine,
+		SelectedDiff:           selectedDiff,
+		SelectedDiffError:      selectedDiffError,
 		SelectedSubmodule:      submoduleShimFromModelSubmodule(self.c.Contexts().Submodules.GetSelected()),
 		SelectedPath:           selectedPath,
 		SelectedLocalCommit:    selectedLocalCommit,

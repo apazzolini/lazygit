@@ -28,6 +28,16 @@ type Commit struct {
 	Parents       []string
 }
 
+type Line struct {
+	Number int
+	Range  *LineRange
+}
+
+type LineRange struct {
+	From int
+	To   int
+}
+
 type File struct {
 	Name                    string
 	PreviousName            string

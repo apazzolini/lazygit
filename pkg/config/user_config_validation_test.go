@@ -226,6 +226,30 @@ func TestUserConfigValidate_enums(t *testing.T) {
 			},
 		},
 		{
+			name: "Custom command stdin output",
+			setup: func(config *UserConfig, value string) {
+				config.CustomCommands = []CustomCommand{{Command: "cat", Stdin: "input", Output: value}}
+			},
+			testCases: []testCase{
+				{value: "", valid: true},
+				{value: "none", valid: true},
+				{value: "terminal", valid: true},
+				{value: "log", valid: true},
+				{value: "popup", valid: true},
+				{value: "logWithPty", valid: false},
+			},
+		},
+		{
+			name: "Custom command stdin on sub menu",
+			setup: func(config *UserConfig, value string) {
+				config.CustomCommands = []CustomCommand{{Stdin: value, CommandMenu: []CustomCommand{{Command: "cat"}}}}
+			},
+			testCases: []testCase{
+				{value: "", valid: true},
+				{value: "input", valid: false},
+			},
+		},
+		{
 			name: "Custom command context",
 			setup: func(config *UserConfig, value string) {
 				config.CustomCommands = []CustomCommand{

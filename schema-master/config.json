@@ -113,6 +113,10 @@
             "git fetch {{.Form.Remote}} {{.Form.Branch}} \u0026\u0026 git checkout FETCH_HEAD"
           ]
         },
+        "stdin": {
+          "type": "string",
+          "description": "Optional text to send to the command's standard input, using Go template syntax and the same captured session and prompt responses as command. Not supported with output: logWithPty."
+        },
         "prompts": {
           "items": {
             "$ref": "#/$defs/CustomCommandPrompt"

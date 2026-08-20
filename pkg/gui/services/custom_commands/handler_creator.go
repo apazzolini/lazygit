@@ -293,6 +293,13 @@ func (self *HandlerCreator) finalHandler(customCommand config.CustomCommand, ses
 	}
 
 	cmdObj := self.c.OS().Cmd.NewShell(cmdStr, self.c.UserConfig().OS.ShellFunctionsFile)
+	if customCommand.Stdin != "" {
+		input, err := resolveTemplate(customCommand.Stdin)
+		if err != nil {
+			return err
+		}
+		cmdObj.SetStdin(input)
+	}
 
 	if customCommand.Output == "terminal" {
 		return self.c.RunSubprocessAndRefresh(cmdObj)
