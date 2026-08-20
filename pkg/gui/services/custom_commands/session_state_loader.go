@@ -247,7 +247,14 @@ func (self *SessionStateLoader) call() *SessionState {
 	} {
 		if self.c.Context().IsCurrent(patchContext) {
 			if state := patchContext.GetState(); state != nil {
-				selectedLine = &Line{Number: state.CurrentLineNumber()}
+				from, to := state.SelectedLineNumberRange()
+				selectedLine = &Line{
+					Number: state.CurrentLineNumber(),
+					Range: &LineRange{
+						From: from,
+						To:   to,
+					},
+				}
 			}
 			break
 		}

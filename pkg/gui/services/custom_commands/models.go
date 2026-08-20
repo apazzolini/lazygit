@@ -30,6 +30,12 @@ type Commit struct {
 
 type Line struct {
 	Number int
+	Range  *LineRange
+}
+
+type LineRange struct {
+	From int
+	To   int
 }
 
 type File struct {

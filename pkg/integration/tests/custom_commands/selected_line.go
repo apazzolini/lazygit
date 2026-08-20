@@ -6,13 +6,13 @@ import (
 )
 
 var SelectedLine = NewIntegrationTest(NewIntegrationTestArgs{
-	Description:  "Use the {{ .SelectedLine.Number }} template variable in an interactive diff",
+	Description:  "Use the {{ .SelectedLine }} template variable in an interactive diff",
 	ExtraCmdArgs: []string{},
 	Skip:         false,
 	SetupRepo: func(shell *Shell) {
-		shell.CreateFileAndAdd("file1", "one\ntwo\nthree\nfour\nfive\n")
+		shell.CreateFileAndAdd("file1", "one\ntwo\nthree\n")
 		shell.Commit("commit")
-		shell.UpdateFile("file1", "one\ntwo\nthree\nfour changed\nfive\n")
+		shell.UpdateFile("file1", "one\ntwo\nthree\nfour\nfive\n")
 	},
 	SetupConfig: func(cfg *config.AppConfig) {
 		cfg.GetUserConfig().Gui.UseHunkModeInStagingView = false
@@ -20,7 +20,7 @@ var SelectedLine = NewIntegrationTest(NewIntegrationTestArgs{
 			{
 				Key:     config.Keybinding{"X"},
 				Context: "staging",
-				Command: "printf '%s:%s' '{{ .SelectedPath }}' '{{ .SelectedLine.Number }}' > location.txt",
+				Command: "printf '%s:%s:%s-%s' '{{ .SelectedPath }}' '{{ .SelectedLine.Number }}' '{{ .SelectedLine.Range.From }}' '{{ .SelectedLine.Range.To }}' > location.txt",
 			},
 		}
 	},
@@ -31,9 +31,14 @@ var SelectedLine = NewIntegrationTest(NewIntegrationTestArgs{
 
 		t.Views().Staging().
 			IsFocused().
-			NavigateToLine(Contains("+four changed")).
+			NavigateToLine(Contains("+four")).
+			Press(keys.Universal.RangeSelectDown).
+			SelectedLines(
+				Contains("+four"),
+				Contains("+five"),
+			).
 			Press(config.Keybinding{"X"})
 
-		t.FileSystem().FileContent("location.txt", Equals("file1:4"))
+		t.FileSystem().FileContent("location.txt", Equals("file1:5:4-5"))
 	},
 })

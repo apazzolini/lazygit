@@ -390,6 +390,11 @@ func (s *State) CurrentLineNumber() int {
 	return s.patch.LineNumberOfLine(s.patchLineIndices[s.selectedLineIdx])
 }
 
+func (s *State) SelectedLineNumberRange() (int, int) {
+	start, end := s.SelectedPatchRange()
+	return s.patch.LineNumberOfLine(start), s.patch.LineNumberOfLine(end)
+}
+
 func (s *State) AdjustSelectedLineIdx(change int) {
 	s.DismissHunkSelectMode()
 	s.SelectLine(s.selectedLineIdx + change)
