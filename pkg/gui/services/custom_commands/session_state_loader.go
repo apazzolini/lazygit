@@ -235,7 +235,7 @@ func (self *SessionStateLoader) call() *SessionState {
 	selectedPath := self.c.Contexts().Files.GetSelectedPath()
 	selectedCommitFilePath := self.c.Contexts().CommitFiles.GetSelectedPath()
 
-	if self.c.Context().IsCurrent(self.c.Contexts().CommitFiles) {
+	if self.c.Context().IsCurrent(self.c.Contexts().CommitFiles) || self.c.Context().IsCurrent(self.c.Contexts().CustomPatchBuilder) {
 		selectedPath = selectedCommitFilePath
 	}
 

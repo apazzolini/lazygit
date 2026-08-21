@@ -201,6 +201,7 @@ var tests = []*components.IntegrationTest{
 	custom_commands.SelectedCommit,
 	custom_commands.SelectedCommitRange,
 	custom_commands.SelectedLine,
+	custom_commands.SelectedLineInCommitFile,
 	custom_commands.SelectedPath,
 	custom_commands.SelectedSubmodule,
 	custom_commands.ShowOutputInPanel,
