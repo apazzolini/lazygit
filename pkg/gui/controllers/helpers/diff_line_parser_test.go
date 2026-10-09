@@ -249,6 +249,12 @@ func TestPathFromDiffHeaderField(t *testing.T) {
 	}{
 		{"new side", "b/file.go", "file.go"},
 		{"old side", "a/file.go", "file.go"},
+		{"index prefix", "i/file.go", "file.go"},
+		{"working tree prefix", "w/file.go", "file.go"},
+		{"commit prefix", "c/file.go", "file.go"},
+		{"object prefix", "o/file.go", "file.go"},
+		{"quoted mnemonic prefix", `"w/caf\303\251.go"`, "café.go"},
+		{"directory named like a prefix", "w/w/file.go", "w/file.go"},
 		{"a missing file", "/dev/null", "/dev/null"},
 		// git terminates the field with a tab when the path has a space in it.
 		{"path with a space", "b/with space.go\t", "with space.go"},
@@ -266,6 +272,95 @@ func TestPathFromDiffHeaderField(t *testing.T) {
 		t.Run(s.name, func(t *testing.T) {
 			assert.Equal(t, s.expected, pathFromDiffHeaderField(s.field))
 		})
+	}
+}
+
+func TestParseDiffLineFromBufferMnemonicPrefixes(t *testing.T) {
+	for _, prefixes := range []struct{ old, new string }{
+		{"i", "w"},
+		{"c", "i"},
+		{"c", "w"},
+		{"c", "c"},
+		{"o", "o"},
+		{"w", "i"},
+	} {
+		t.Run(prefixes.old+"/"+prefixes.new, func(t *testing.T) {
+			buffer := strings.Split(strings.NewReplacer("a/", prefixes.old+"/", "b/", prefixes.new+"/").Replace(twoFileDiff), "\n")
+			result, ok := parseDiffLineFromBuffer(buffer, 15)
+			assert.True(t, ok)
+			assert.Equal(t, parsedDiffLine{Path: "dir/file2.go", Type: types.DiffLineAdded, NewLine: 10}, result)
+
+			result, ok = parseDiffLineFromBuffer(buffer[:1], 0)
+			assert.True(t, ok)
+			assert.Equal(t, parsedDiffLine{Path: "file1.go", Type: types.DiffLineFileHeader, NewLine: 1}, result)
+
+			quoted := []string{`diff --git "` + prefixes.old + `/old.go" "` + prefixes.new + `/caf\303\251.go"`}
+			result, ok = parseDiffLineFromBuffer(quoted, 0)
+			assert.True(t, ok)
+			assert.Equal(t, parsedDiffLine{Path: "café.go", Type: types.DiffLineFileHeader, NewLine: 1}, result)
+
+			deleted := []string{
+				"diff --git " + prefixes.old + "/gone.go " + prefixes.new + "/gone.go",
+				"--- " + prefixes.old + "/gone.go",
+				"+++ /dev/null",
+				"@@ -1 +0,0 @@",
+				"-gone",
+			}
+			result, ok = parseDiffLineFromBuffer(deleted, 4)
+			assert.True(t, ok)
+			assert.Equal(t, parsedDiffLine{Path: "gone.go", Type: types.DiffLineDeleted, OldLine: 1}, result)
+		})
+	}
+}
+
+func TestPathFromDiffGitLinePrefixLikePaths(t *testing.T) {
+	scenarios := []struct {
+		name     string
+		line     string
+		expected string
+	}{
+		{"standard prefixes", "diff --git a/dir i/file.go b/dir i/file.go", "dir i/file.go"},
+		{"mnemonic prefixes", "diff --git i/dir w/file.go w/dir w/file.go", "dir w/file.go"},
+		{"commit prefixes", "diff --git c/dir c/file.go c/dir c/file.go", "dir c/file.go"},
+		{"quoted old field", `diff --git "c/old\".go" w/dir i/new.go`, "dir i/new.go"},
+		{"quoted new field", `diff --git c/dir w/old.go "w/new\".go"`, `new".go`},
+		{"both quoted", `diff --git "c/old\".go" "w/dir i/new\".go"`, `dir i/new".go`},
+		{"ambiguous rename", "diff --git c/old.go w/dir i/new.go", ""},
+		{"malformed quoted old field", `diff --git "c/old.go w/new.go`, ""},
+		{"missing separator", `diff --git "c/old.go"w/new.go`, ""},
+		{"empty header", "diff --git ", ""},
+	}
+	for _, s := range scenarios {
+		t.Run(s.name, func(t *testing.T) {
+			assert.Equal(t, s.expected, pathFromDiffGitLine(s.line))
+		})
+	}
+}
+
+func TestParseDiffLineFromBufferPrefixLikeRenamePaths(t *testing.T) {
+	for _, operation := range []string{"rename", "copy"} {
+		for _, s := range []struct {
+			field    string
+			expected string
+		}{
+			{"dir i/new.go", "dir i/new.go"},
+			{"w/new.go", "w/new.go"},
+			{"copy to new.go", "copy to new.go"},
+			{`"dir w/caf\303\251.go"`, "dir w/café.go"},
+			{`"dir i/new\".go"`, `dir i/new".go`},
+		} {
+			t.Run(operation+"/"+s.field, func(t *testing.T) {
+				buffer := []string{
+					"diff --git c/dir w/old.go w/" + s.field,
+					"similarity index 100%",
+					operation + " from dir w/old.go",
+					operation + " to " + s.field,
+				}
+				result, ok := parseDiffLineFromBuffer(buffer, 0)
+				assert.True(t, ok)
+				assert.Equal(t, parsedDiffLine{Path: s.expected, Type: types.DiffLineFileHeader, NewLine: 1}, result)
+			})
+		}
 	}
 }
 

@@ -316,7 +316,7 @@ func pathFromDiffHeader(fileLines []string) string {
 		return path
 	}
 
-	var oldPath, newPath string
+	var oldPath, newPath, destinationPath string
 	for _, line := range fileLines {
 		if strings.HasPrefix(line, "@@") {
 			break // past the header
@@ -326,6 +326,16 @@ func pathFromDiffHeader(fileLines []string) string {
 			newPath = pathFromDiffHeaderField(strings.TrimPrefix(line, "+++ "))
 		case strings.HasPrefix(line, "--- "):
 			oldPath = pathFromDiffHeaderField(strings.TrimPrefix(line, "--- "))
+		case strings.HasPrefix(line, "rename to "), strings.HasPrefix(line, "copy to "):
+			_, destinationPath, _ = strings.Cut(line, " to ")
+			if strings.HasPrefix(destinationPath, `"`) {
+				decoded, err := strconv.Unquote(destinationPath)
+				if err != nil {
+					destinationPath = ""
+				} else {
+					destinationPath = decoded
+				}
+			}
 		}
 	}
 
@@ -334,6 +344,9 @@ func pathFromDiffHeader(fileLines []string) string {
 	}
 	if oldPath != "" && oldPath != "/dev/null" {
 		return oldPath
+	}
+	if destinationPath != "" {
+		return destinationPath
 	}
 	return pathFromDiffGitLine(fileLines[0])
 }
@@ -369,7 +382,7 @@ func pathFromDiffHeaderField(field string) string {
 // diff header. We ask git for these prefixes explicitly (diff.noprefix=false),
 // so they are always there.
 func stripDiffPathPrefix(path string) string {
-	if strings.HasPrefix(path, "a/") || strings.HasPrefix(path, "b/") {
+	if len(path) >= 2 && path[1] == '/' && strings.ContainsRune("abiwco", rune(path[0])) {
 		return path[2:]
 	}
 	return path
@@ -442,11 +455,24 @@ func diffLineTypeFromMetadata(typeField string) (types.DiffLineType, bool) {
 // are unambiguous and we only get here when they are absent.
 func pathFromDiffGitLine(line string) string {
 	rest := strings.TrimPrefix(line, diffFilePrefix)
-	if idx := strings.LastIndex(rest, ` "b/`); idx != -1 {
+	if strings.HasPrefix(rest, `"`) {
+		oldField, err := strconv.QuotedPrefix(rest)
+		if err != nil || !strings.HasPrefix(rest[len(oldField):], " ") {
+			return ""
+		}
+		return pathFromDiffHeaderField(rest[len(oldField)+1:])
+	}
+	if idx := strings.Index(rest, ` "`); idx != -1 {
 		return pathFromDiffHeaderField(rest[idx+1:])
 	}
-	if idx := strings.LastIndex(rest, " b/"); idx != -1 {
-		return pathFromDiffHeaderField(rest[idx+1:])
+	midpoint := len(rest) / 2
+	if len(rest)%2 != 1 || rest[midpoint] != ' ' {
+		return ""
 	}
-	return ""
+	oldPath := pathFromDiffHeaderField(rest[:midpoint])
+	newPath := pathFromDiffHeaderField(rest[midpoint+1:])
+	if oldPath == "" || oldPath != newPath {
+		return ""
+	}
+	return newPath
 }
